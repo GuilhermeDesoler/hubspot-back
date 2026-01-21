@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adicionar Nova Opção</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            padding: 20px;
+            background: #f5f8fa;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #33475b;
+            margin-bottom: 24px;
+            font-size: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #33475b;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #cbd6e2;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #0091ae;
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: #7c98b6;
+            margin-top: 4px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 30px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background-color: #ff7a59;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #ff5c39;
+        }
+
+        .btn-primary:disabled {
+            background-color: #cbd6e2;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background-color: #f5f8fa;
+            color: #33475b;
+        }
+
+        .btn-secondary:hover {
+            background-color: #eaf0f6;
+        }
+
+        .alert {
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spinner 0.6s linear infinite;
+        }
+
+        @keyframes spinner {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Adicionar Nova Opção</h1>
+
+        <div id="alert" class="alert hidden"></div>
+
+        <form id="addOptionForm">
+            <div class="form-group">
+                <label for="name">Nome da Opção *</label>
+                <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    required
+                    placeholder="Ex: Cliente Ativo"
+                    autocomplete="off"
+                >
+                <div class="help-text">Nome que será exibido no HubSpot</div>
+            </div>
+
+            <div class="form-group">
+                <label for="value">Valor da Opção *</label>
+                <input
+                    type="text"
+                    id="value"
+                    name="value"
+                    required
+                    placeholder="Ex: cliente_ativo"
+                    autocomplete="off"
+                >
+                <div class="help-text">Valor interno (use snake_case, sem espaços)</div>
+            </div>
+
+            <div class="form-group">
+                <label for="objectType">Tipo de Objeto</label>
+                <select id="objectType" name="objectType">
+                    <option value="contacts">Contatos</option>
+                    <option value="deals">Negócios</option>
+                    <option value="companies">Empresas</option>
+                    <option value="tickets">Tickets</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="propertyName">Nome da Propriedade</label>
+                <input
+                    type="text"
+                    id="propertyName"
+                    name="propertyName"
+                    placeholder="sua_propriedade_customizada"
+                    value="sua_propriedade_customizada"
+                    autocomplete="off"
+                >
+                <div class="help-text">Nome interno da propriedade no HubSpot</div>
+            </div>
+
+            <div class="button-group">
+                <button type="button" class="btn-secondary" onclick="closeWindow()">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn-primary" id="submitBtn">
+                    Adicionar Opção
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const form = document.getElementById('addOptionForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const alertBox = document.getElementById('alert');
+
+        // Função para mostrar alertas
+        function showAlert(message, type = 'success') {
+            alertBox.textContent = message;
+            alertBox.className = `alert alert-${type}`;
+            alertBox.classList.remove('hidden');
+
+            setTimeout(() => {
+                alertBox.classList.add('hidden');
+            }, 5000);
+        }
+
+        // Função para formatar o valor (remover espaços, converter para snake_case)
+        document.getElementById('value').addEventListener('blur', function(e) {
+            let value = e.target.value;
+            value = value.toLowerCase()
+                         .replace(/\s+/g, '_')
+                         .replace(/[^a-z0-9_]/g, '');
+            e.target.value = value;
+        });
+
+        // Auto-gerar valor baseado no nome
+        document.getElementById('name').addEventListener('blur', function(e) {
+            const valueInput = document.getElementById('value');
+            if (!valueInput.value) {
+                const autoValue = e.target.value
+                    .toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/\s+/g, '_')
+                    .replace(/[^a-z0-9_]/g, '');
+                valueInput.value = autoValue;
+            }
+        });
+
+        // Submit do formulário
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = {
+                name: document.getElementById('name').value.trim(),
+                value: document.getElementById('value').value.trim(),
+                objectType: document.getElementById('objectType').value,
+                propertyName: document.getElementById('propertyName').value.trim()
+            };
+
+            // Validação básica
+            if (!formData.name || !formData.value) {
+                showAlert('Por favor, preencha todos os campos obrigatórios', 'error');
+                return;
+            }
+
+            // Desabilita o botão e mostra loading
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="loading"></span> Adicionando...';
+
+            try {
+                const response = await fetch('http://localhost:3000/api/add-option', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    showAlert('Opção adicionada com sucesso!', 'success');
+
+                    // Reseta o formulário
+                    form.reset();
+
+                    // Fecha a janela após 2 segundos
+                    setTimeout(() => {
+                        closeWindow();
+                    }, 2000);
+                } else {
+                    showAlert(result.message || 'Erro ao adicionar opção', 'error');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                showAlert('Erro ao conectar com o servidor. Verifique se o backend está rodando.', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Adicionar Opção';
+            }
+        });
+
+        function closeWindow() {
+            // Para iframes do HubSpot
+            if (window.parent !== window) {
+                window.parent.postMessage({ action: 'DONE' }, '*');
+            }
+            // Fallback para fechar a janela
+            window.close();
+        }
+    </script>
+</body>
+</html>

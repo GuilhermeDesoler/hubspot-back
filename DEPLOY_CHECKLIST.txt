@@ -1,0 +1,108 @@
+╔════════════════════════════════════════════════════════════════╗
+║                                                                ║
+║   ✅ CHECKLIST DE DEPLOY - RENDER.COM                        ║
+║                                                                ║
+╚════════════════════════════════════════════════════════════════╝
+
+📦 ANTES DO DEPLOY:
+   □ Código testado localmente (npm run start:dev)
+   □ test-poc.sh passou com sucesso
+   □ .env.example atualizado
+   □ .gitignore configurado
+   □ package.json com scripts corretos:
+     - "build": "tsc"
+     - "start:prod": "node dist/main.js"
+
+🔧 GIT SETUP:
+   □ git init (se necessário)
+   □ git add .
+   □ git commit -m "feat: ready for deploy"
+   □ Repositório criado no GitHub
+   □ git remote add origin URL
+   □ git push -u origin main
+
+🌐 RENDER.COM:
+   □ Conta criada em https://render.com
+   □ New + → Web Service
+   □ Repositório conectado
+   □ Configurações:
+     - Name: hubspot-integration-poc
+     - Root Directory: back
+     - Build Command: npm install && npm run build
+     - Start Command: npm run start:prod
+     - Instance Type: Free
+
+🔐 VARIÁVEIS DE AMBIENTE (Render Dashboard):
+   □ NODE_ENV=production
+   □ MONGODB_URI=mongodb+srv://guilhermedesoler_db_user:...
+   □ MONGODB_DB_NAME=hubspot-integration-poc
+   □ HUBSPOT_ACCESS_TOKEN=seu-token-aqui
+   □ DEFAULT_OBJECT_TYPE=contacts
+   □ DEFAULT_PROPERTY_NAME=sua_propriedade_customizada
+
+🚀 DEPLOY:
+   □ Create Web Service clicado
+   □ Build iniciou (veja logs)
+   □ Build concluído sem erros
+   □ Deploy concluído
+   □ Status: Live
+   □ URL pública gerada
+
+🧪 TESTES PÓS-DEPLOY:
+   □ Health check: curl https://sua-url.onrender.com/api/health
+   □ Resposta: {"success":true,"mongodb":{"connected":true}}
+   □ Add option: curl -X POST .../api/add-option
+   □ List options: curl .../api/external-options
+   □ test-deploy.sh executado com sucesso
+
+📱 ATUALIZAR HUBSPOT APP:
+   □ Editar crm-card.js com nova URL
+   □ Editar crm-card.json com nova URL iframe
+   □ cd external-card-data && hs project upload
+   □ Testar card no HubSpot
+
+📊 VALIDAÇÃO FINAL:
+   □ Backend responde no Render
+   □ MongoDB conectado
+   □ Adicionar opção funciona
+   □ HubSpot Card exibe dados
+   □ Iframe abre corretamente
+   □ Sincronização HubSpot funciona
+
+🎯 URLs IMPORTANTES:
+   • Render Dashboard: https://dashboard.render.com
+   • API Health: https://sua-url.onrender.com/api/health
+   • API Base: https://sua-url.onrender.com/api
+   • Iframe: https://sua-url.onrender.com/iframe/add-option.html
+
+📝 COMANDOS ÚTEIS:
+   # Testar deploy
+   RENDER_URL=https://sua-url.onrender.com ./test-deploy.sh
+
+   # Ver logs
+   # Render Dashboard → Seu serviço → Logs
+
+   # Redeploy
+   git commit --allow-empty -m "trigger deploy"
+   git push
+
+   # Testar health
+   curl https://sua-url.onrender.com/api/health
+
+🔄 MANUTENÇÃO:
+   □ Monitorar logs no Render Dashboard
+   □ Verificar métricas (CPU, Memory)
+   □ Atualizar variáveis se necessário
+   □ Git push para redeploy automático
+
+⚠️  IMPORTANTE:
+   • Plano Free "sleeps" após 15min inatividade
+   • Wake-up automático em ~30 segundos
+   • Considere Starter ($7/mês) para 24/7
+   • MongoDB Atlas: adicione 0.0.0.0/0 no Network Access
+
+✅ DEPLOY CONCLUÍDO!
+   Se todos os checkboxes estão marcados, seu deploy está pronto!
+   
+   Teste com seu sistema pessoal agora! 🎉
+
