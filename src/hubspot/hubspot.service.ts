@@ -134,7 +134,7 @@ export class HubspotService {
 
   /**
    * Atualiza todos os formulários que usam uma propriedade específica
-   * Força o refresh das opções em todos os formulários
+   * Usa API v3 diretamente via HTTP para evitar restrições do SDK
    */
   async updateFormsWithProperty(
     propertyName: string = 'sua_propriedade_customizada'
@@ -142,16 +142,31 @@ export class HubspotService {
     try {
       console.log(`🔄 Buscando formulários que usam a propriedade: ${propertyName}`);
 
-      // 1. Buscar todos os formulários
-      const formsResponse = await this.hubspot.marketing.forms.formsApi.getPage();
-      const forms = formsResponse.results || [];
+      const accessToken = process.env.HUBSPOT_ACCESS_TOKEN;
+
+      // 1. Buscar todos os formulários via API v3
+      const formsResponse = await fetch('https://api.hubapi.com/marketing/v3/forms', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!formsResponse.ok) {
+        const errorText = await formsResponse.text();
+        throw new Error(`Erro ao buscar formulários: ${formsResponse.status} - ${errorText}`);
+      }
+
+      const formsData = await formsResponse.json();
+      const forms = formsData.results || [];
 
       console.log(`📋 Encontrados ${forms.length} formulários`);
 
       const updatedForms = [];
       const skippedForms = [];
 
-      // 2. Buscar opções atualizadas da propriedade (uma vez só)
+      // 2. Buscar opções atualizadas da propriedade
       const propertyData = await this.hubspot.crm.properties.coreApi.getByName(
         'contacts',
         propertyName
@@ -183,56 +198,41 @@ export class HubspotService {
             continue;
           }
 
-          // 4. Criar fieldGroups garantindo máximo de 3 campos por grupo
-          const allFields = [];
-          for (const group of form.fieldGroups || []) {
-            for (const field of group.fields || []) {
-              // Cast para acessar validation
-              const fieldAny = field as any;
-
-              // Base field com validation
-              const baseField = {
-                objectTypeId: field.objectTypeId || '0-1',
-                name: field.name,
-                label: field.label,
-                required: field.required || false,
-                hidden: field.hidden || false,
-                fieldType: field.fieldType,
-                validation: fieldAny.validation || {}
-              };
-
-              // Atualizar opções se for o campo alvo
+          // 4. Atualizar apenas o campo específico mantendo estrutura original
+          const updatedGroups = form.fieldGroups.map((group: any) => ({
+            ...group,
+            fields: group.fields.map((field: any) => {
               if (field.name === propertyName) {
-                allFields.push({
-                  ...baseField,
-                  fieldType: field.fieldType || 'dropdown',
+                return {
+                  ...field,
                   options: currentOptions.map(opt => ({
                     label: opt.label,
                     value: opt.value,
                     displayOrder: opt.displayOrder || -1,
                     hidden: opt.hidden || false
                   }))
-                });
-              } else {
-                allFields.push(baseField);
+                };
               }
-            }
-          }
+              return field;
+            })
+          }));
 
-          // 5. Dividir em grupos de no máximo 3 campos
-          const updatedGroups = [];
-          for (let i = 0; i < allFields.length; i += 3) {
-            updatedGroups.push({
-              groupType: 'default_group',
-              richTextType: 'text',
-              fields: allFields.slice(i, i + 3)
-            });
-          }
-
-          // 6. Fazer update do formulário apenas com fieldGroups
-          await this.hubspot.marketing.forms.formsApi.update(form.id, {
-            fieldGroups: updatedGroups
+          // 5. Fazer PATCH via API v3 diretamente
+          const updateResponse = await fetch(`https://api.hubapi.com/marketing/v3/forms/${form.id}`, {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              fieldGroups: updatedGroups
+            })
           });
+
+          if (!updateResponse.ok) {
+            const errorText = await updateResponse.text();
+            throw new Error(`${updateResponse.status} - ${errorText}`);
+          }
 
           updatedForms.push({
             id: form.id,
