@@ -134,7 +134,7 @@ export class HubspotService {
 
   /**
    * Atualiza todos os formulários que usam uma propriedade específica
-   * Usa API v3 diretamente via HTTP para evitar restrições do SDK
+   * Usa API v2 (legada) que pode ter menos restrições
    */
   async updateFormsWithProperty(
     propertyName: string = 'sua_propriedade_customizada'
@@ -144,8 +144,8 @@ export class HubspotService {
 
       const accessToken = process.env.HUBSPOT_ACCESS_TOKEN;
 
-      // 1. Buscar todos os formulários via API v3
-      const formsResponse = await fetch('https://api.hubapi.com/marketing/v3/forms', {
+      // 1. Buscar todos os formulários via API v2 (legada)
+      const formsResponse = await fetch('https://api.hubapi.com/forms/v2/forms', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -158,8 +158,7 @@ export class HubspotService {
         throw new Error(`Erro ao buscar formulários: ${formsResponse.status} - ${errorText}`);
       }
 
-      const formsData = await formsResponse.json();
-      const forms = formsData.results || [];
+      const forms = await formsResponse.json();
 
       console.log(`📋 Encontrados ${forms.length} formulários`);
 
@@ -176,13 +175,21 @@ export class HubspotService {
       // 3. Para cada formulário, verificar se usa a propriedade
       for (const form of forms) {
         try {
+          // API v2 usa formFieldGroups
+          const fieldGroups = form.formFieldGroups || [];
+
           // Verificar se o formulário tem o campo
           let hasProperty = false;
+          let fieldIndex = -1;
+          let groupIndex = -1;
 
-          for (const group of form.fieldGroups || []) {
-            for (const field of group.fields || []) {
-              if (field.name === propertyName) {
+          for (let gi = 0; gi < fieldGroups.length; gi++) {
+            const fields = fieldGroups[gi].fields || [];
+            for (let fi = 0; fi < fields.length; fi++) {
+              if (fields[fi].name === propertyName) {
                 hasProperty = true;
+                groupIndex = gi;
+                fieldIndex = fi;
                 break;
               }
             }
@@ -191,17 +198,17 @@ export class HubspotService {
 
           if (!hasProperty) {
             skippedForms.push({
-              id: form.id,
+              id: form.guid,
               name: form.name,
               reason: 'Não usa a propriedade'
             });
             continue;
           }
 
-          // 4. Atualizar apenas o campo específico mantendo estrutura original
-          const updatedGroups = form.fieldGroups.map((group: any) => ({
+          // 4. Atualizar as opções do campo específico
+          const updatedFieldGroups = fieldGroups.map((group: any, gi: number) => ({
             ...group,
-            fields: group.fields.map((field: any) => {
+            fields: group.fields.map((field: any, fi: number) => {
               if (field.name === propertyName) {
                 return {
                   ...field,
@@ -209,7 +216,8 @@ export class HubspotService {
                     label: opt.label,
                     value: opt.value,
                     displayOrder: opt.displayOrder || -1,
-                    hidden: opt.hidden || false
+                    hidden: opt.hidden || false,
+                    description: ''
                   }))
                 };
               }
@@ -217,15 +225,16 @@ export class HubspotService {
             })
           }));
 
-          // 5. Fazer PATCH via API v3 diretamente
-          const updateResponse = await fetch(`https://api.hubapi.com/marketing/v3/forms/${form.id}`, {
-            method: 'PATCH',
+          // 5. Fazer POST via API v2 para atualizar
+          const updateResponse = await fetch(`https://api.hubapi.com/forms/v2/forms/${form.guid}`, {
+            method: 'POST',
             headers: {
               'Authorization': `Bearer ${accessToken}`,
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              fieldGroups: updatedGroups
+              ...form,
+              formFieldGroups: updatedFieldGroups
             })
           });
 
@@ -235,7 +244,7 @@ export class HubspotService {
           }
 
           updatedForms.push({
-            id: form.id,
+            id: form.guid,
             name: form.name,
             optionsCount: currentOptions.length
           });
@@ -243,9 +252,9 @@ export class HubspotService {
           console.log(`✅ Formulário "${form.name}" atualizado com ${currentOptions.length} opções`);
 
         } catch (error) {
-          console.error(`❌ Erro ao atualizar formulário ${form.id}:`, error.message);
+          console.error(`❌ Erro ao atualizar formulário ${form.guid}:`, error.message);
           skippedForms.push({
-            id: form.id,
+            id: form.guid,
             name: form.name,
             reason: `Erro: ${error.message}`
           });
