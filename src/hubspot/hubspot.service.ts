@@ -151,18 +151,23 @@ export class HubspotService {
       const updatedForms = [];
       const skippedForms = [];
 
-      // 2. Para cada formulário, verificar se usa a propriedade
+      // 2. Buscar opções atualizadas da propriedade (uma vez só)
+      const propertyData = await this.hubspot.crm.properties.coreApi.getByName(
+        'contacts',
+        propertyName
+      );
+      const currentOptions = propertyData.options || [];
+
+      // 3. Para cada formulário, verificar se usa a propriedade
       for (const form of forms) {
         try {
           // Verificar se o formulário tem o campo
           let hasProperty = false;
-          let fieldToUpdate = null;
 
           for (const group of form.fieldGroups || []) {
             for (const field of group.fields || []) {
               if (field.name === propertyName) {
                 hasProperty = true;
-                fieldToUpdate = field;
                 break;
               }
             }
@@ -178,37 +183,57 @@ export class HubspotService {
             continue;
           }
 
-          // 3. Buscar opções atualizadas da propriedade
-          const propertyData = await this.hubspot.crm.properties.coreApi.getByName(
-            'contacts',
-            propertyName
-          );
-
-          const currentOptions = propertyData.options || [];
-
-          // 4. Atualizar o formulário com as opções mais recentes
-          const updatedGroups = form.fieldGroups.map(group => ({
-            ...group,
-            fields: group.fields.map(field => {
+          // 4. Criar fieldGroups garantindo máximo de 3 campos por grupo
+          const allFields = [];
+          for (const group of form.fieldGroups || []) {
+            for (const field of group.fields || []) {
+              // Atualizar opções se for o campo alvo
               if (field.name === propertyName) {
-                return {
-                  ...field,
+                allFields.push({
+                  objectTypeId: field.objectTypeId || '0-1',
+                  name: field.name,
+                  label: field.label,
+                  required: field.required || false,
+                  hidden: field.hidden || false,
+                  fieldType: field.fieldType || 'dropdown',
                   options: currentOptions.map(opt => ({
                     label: opt.label,
                     value: opt.value,
                     displayOrder: opt.displayOrder || -1,
                     hidden: opt.hidden || false
                   }))
-                };
+                });
+              } else {
+                // Manter campos existentes com estrutura mínima
+                allFields.push({
+                  objectTypeId: field.objectTypeId || '0-1',
+                  name: field.name,
+                  label: field.label,
+                  required: field.required || false,
+                  hidden: field.hidden || false,
+                  fieldType: field.fieldType
+                });
               }
-              return field;
-            })
-          }));
+            }
+          }
 
-          // 5. Fazer update do formulário
+          // 5. Dividir em grupos de no máximo 3 campos
+          const updatedGroups = [];
+          for (let i = 0; i < allFields.length; i += 3) {
+            updatedGroups.push({
+              groupType: 'default_group',
+              richTextType: 'text',
+              fields: allFields.slice(i, i + 3)
+            });
+          }
+
+          // 6. Fazer update do formulário com estrutura mínima
           await this.hubspot.marketing.forms.formsApi.update(form.id, {
-            ...form,
-            fieldGroups: updatedGroups
+            name: form.name,
+            formType: form.formType || 'hubspot',
+            fieldGroups: updatedGroups,
+            configuration: form.configuration,
+            displayOptions: form.displayOptions
           });
 
           updatedForms.push({
