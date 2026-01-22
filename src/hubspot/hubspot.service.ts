@@ -187,14 +187,24 @@ export class HubspotService {
           const allFields = [];
           for (const group of form.fieldGroups || []) {
             for (const field of group.fields || []) {
+              // Cast para acessar validation
+              const fieldAny = field as any;
+
+              // Base field com validation
+              const baseField = {
+                objectTypeId: field.objectTypeId || '0-1',
+                name: field.name,
+                label: field.label,
+                required: field.required || false,
+                hidden: field.hidden || false,
+                fieldType: field.fieldType,
+                validation: fieldAny.validation || {}
+              };
+
               // Atualizar opções se for o campo alvo
               if (field.name === propertyName) {
                 allFields.push({
-                  objectTypeId: field.objectTypeId || '0-1',
-                  name: field.name,
-                  label: field.label,
-                  required: field.required || false,
-                  hidden: field.hidden || false,
+                  ...baseField,
                   fieldType: field.fieldType || 'dropdown',
                   options: currentOptions.map(opt => ({
                     label: opt.label,
@@ -204,15 +214,7 @@ export class HubspotService {
                   }))
                 });
               } else {
-                // Manter campos existentes com estrutura mínima
-                allFields.push({
-                  objectTypeId: field.objectTypeId || '0-1',
-                  name: field.name,
-                  label: field.label,
-                  required: field.required || false,
-                  hidden: field.hidden || false,
-                  fieldType: field.fieldType
-                });
+                allFields.push(baseField);
               }
             }
           }
