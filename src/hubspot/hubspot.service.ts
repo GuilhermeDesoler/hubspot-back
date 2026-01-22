@@ -227,13 +227,9 @@ export class HubspotService {
             });
           }
 
-          // 6. Fazer update do formulário com estrutura mínima
+          // 6. Fazer update do formulário apenas com fieldGroups
           await this.hubspot.marketing.forms.formsApi.update(form.id, {
-            name: form.name,
-            formType: form.formType || 'hubspot',
-            fieldGroups: updatedGroups,
-            configuration: form.configuration,
-            displayOptions: form.displayOptions
+            fieldGroups: updatedGroups
           });
 
           updatedForms.push({
