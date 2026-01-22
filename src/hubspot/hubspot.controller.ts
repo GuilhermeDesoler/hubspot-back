@@ -165,6 +165,37 @@ export class HubspotController {
   }
 
   /**
+   * Endpoint para atualizar formulários com as opções mais recentes
+   * POST /api/update-forms
+   * Body: { propertyName?: string }
+   */
+  @Post('update-forms')
+  async updateForms(
+    @Body() data?: {
+      propertyName?: string;
+    }
+  ) {
+    try {
+      const propertyName = data?.propertyName || process.env.DEFAULT_PROPERTY_NAME || 'sua_propriedade_customizada';
+
+      console.log('🔄 Atualizando formulários...');
+      console.log('   Property Name:', propertyName);
+
+      const result = await this.hubspotService.updateFormsWithProperty(propertyName);
+
+      console.log(`✅ ${result.data.summary.updated} formulários atualizados!`);
+
+      return result;
+    } catch (error) {
+      console.error('❌ Erro ao atualizar formulários:', error);
+      throw new HttpException(
+        error.message || 'Erro ao atualizar formulários',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  /**
    * Endpoint para buscar opções do MongoDB
    * GET /api/external-options
    */

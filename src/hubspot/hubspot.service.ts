@@ -131,4 +131,121 @@ export class HubspotService {
       throw new Error(`Falha ao buscar opções: ${error.message}`);
     }
   }
+
+  /**
+   * Atualiza todos os formulários que usam uma propriedade específica
+   * Força o refresh das opções em todos os formulários
+   */
+  async updateFormsWithProperty(
+    propertyName: string = 'sua_propriedade_customizada'
+  ) {
+    try {
+      console.log(`🔄 Buscando formulários que usam a propriedade: ${propertyName}`);
+
+      // 1. Buscar todos os formulários
+      const formsResponse = await this.hubspot.marketing.forms.formsApi.getPage();
+      const forms = formsResponse.results || [];
+
+      console.log(`📋 Encontrados ${forms.length} formulários`);
+
+      const updatedForms = [];
+      const skippedForms = [];
+
+      // 2. Para cada formulário, verificar se usa a propriedade
+      for (const form of forms) {
+        try {
+          // Verificar se o formulário tem o campo
+          let hasProperty = false;
+          let fieldToUpdate = null;
+
+          for (const group of form.fieldGroups || []) {
+            for (const field of group.fields || []) {
+              if (field.name === propertyName) {
+                hasProperty = true;
+                fieldToUpdate = field;
+                break;
+              }
+            }
+            if (hasProperty) break;
+          }
+
+          if (!hasProperty) {
+            skippedForms.push({
+              id: form.id,
+              name: form.name,
+              reason: 'Não usa a propriedade'
+            });
+            continue;
+          }
+
+          // 3. Buscar opções atualizadas da propriedade
+          const propertyData = await this.hubspot.crm.properties.coreApi.getByName(
+            'contacts',
+            propertyName
+          );
+
+          const currentOptions = propertyData.options || [];
+
+          // 4. Atualizar o formulário com as opções mais recentes
+          const updatedGroups = form.fieldGroups.map(group => ({
+            ...group,
+            fields: group.fields.map(field => {
+              if (field.name === propertyName) {
+                return {
+                  ...field,
+                  options: currentOptions.map(opt => ({
+                    label: opt.label,
+                    value: opt.value,
+                    displayOrder: opt.displayOrder || -1,
+                    hidden: opt.hidden || false
+                  }))
+                };
+              }
+              return field;
+            })
+          }));
+
+          // 5. Fazer update do formulário
+          await this.hubspot.marketing.forms.formsApi.update(form.id, {
+            ...form,
+            fieldGroups: updatedGroups
+          });
+
+          updatedForms.push({
+            id: form.id,
+            name: form.name,
+            optionsCount: currentOptions.length
+          });
+
+          console.log(`✅ Formulário "${form.name}" atualizado com ${currentOptions.length} opções`);
+
+        } catch (error) {
+          console.error(`❌ Erro ao atualizar formulário ${form.id}:`, error.message);
+          skippedForms.push({
+            id: form.id,
+            name: form.name,
+            reason: `Erro: ${error.message}`
+          });
+        }
+      }
+
+      return {
+        success: true,
+        message: `${updatedForms.length} formulários atualizados`,
+        data: {
+          updated: updatedForms,
+          skipped: skippedForms,
+          summary: {
+            total: forms.length,
+            updated: updatedForms.length,
+            skipped: skippedForms.length
+          }
+        }
+      };
+
+    } catch (error) {
+      console.error('Erro ao atualizar formulários:', error);
+      throw new Error(`Falha ao atualizar formulários: ${error.message}`);
+    }
+  }
 }
